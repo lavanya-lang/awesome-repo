@@ -1,135 +1,70 @@
-# Creates a production-grade Google Cloud KMS Key Ring and CryptoKey for encrypting sensitive data at rest, with rotation enabled, prevent_destroy lifecycle protection, least-privilege IAM bindings (admin, encrypter/decrypter, viewer), and labels environment=production and managed_by=terraform.
-# Generated Terraform code for GCP in us-east-1
+# Creates a single production-grade AWS SQS queue named 'grait-queue' in us-east-1 with SQS-managed server-side encryption enabled and standard enterprise tags.
+# Generated Terraform code for AWS in us-east-1
 
 terraform {
   required_version = ">= 1.14.0"
 
   required_providers {
-    google = {
-      source  = "hashicorp/google"
-      version = "= 7.12.0"
+    aws = {
+      source  = "hashicorp/aws"
+      version = "= 6.25.0"
     }
   }
 }
 
-variable "project_id" {
-  description = "GCP project ID where the KMS resources will be created."
+variable "aws_region" {
+  description = "AWS region to deploy resources into."
   type        = string
+  default     = "us-east-1"
 }
 
-variable "location" {
-  description = "KMS location. Use a GCP KMS location (region like us-east1) or multi-region (like us). Note: the provided target region 'us-east-1' is an AWS-style region and is not valid in GCP."
+variable "queue_name" {
+  description = "SQS queue name."
   type        = string
-  default     = "us-east1"
-}
-
-variable "key_ring_name" {
-  description = "Name of the Cloud KMS Key Ring."
-  type        = string
-  default     = "prod-data-keyring"
+  default     = "grait-queue"
 
   validation {
-    condition     = length(var.key_ring_name) > 0
-    error_message = "key_ring_name must not be empty."
+    condition     = length(var.queue_name) >= 1 && length(var.queue_name) <= 80
+    error_message = "SQS queue name must be between 1 and 80 characters."
   }
 }
 
-variable "crypto_key_name" {
-  description = "Name of the Cloud KMS CryptoKey used to encrypt sensitive production data at rest."
-  type        = string
-  default     = "prod-data-key"
-
-  validation {
-    condition     = length(var.crypto_key_name) > 0
-    error_message = "crypto_key_name must not be empty."
-  }
-}
-
-variable "kms_key_admins" {
-  description = "List of IAM members who can administer the key (e.g., [\"group:secops@example.com\"])."
-  type        = list(string)
-  default     = []
-}
-
-variable "kms_key_encrypters_decrypters" {
-  description = "List of IAM members allowed to encrypt/decrypt using the key (e.g., [\"serviceAccount:app-sa@PROJECT_ID.iam.gserviceaccount.com\"])."
-  type        = list(string)
-  default     = []
-}
-
-variable "kms_key_viewers" {
-  description = "List of IAM members allowed to view key metadata (least-privilege read-only)."
-  type        = list(string)
-  default     = []
-}
-
-variable "labels" {
-  description = "Labels to apply to supported resources."
+variable "tags" {
+  description = "Tags to apply to the SQS queue."
   type        = map(string)
   default = {
-    environment = "production"
-    managed_by  = "terraform"
+    Environment = "prod"
+    ManagedBy   = "terraform"
+    Project     = "grait"
   }
 }
 
-provider "google" {
+provider "aws" {
   {{block_to_replace_cred}}
+  region = var.aws_region
 }
 
-resource "google_kms_key_ring" "prod" {
-  location = var.location
-  name     = var.key_ring_name
-  project  = var.project_id
+resource "aws_sqs_queue" "grait" {
+  name = var.queue_name
+
+  # Production-grade defaults
+  kms_data_key_reuse_period_seconds = 300
+  sqs_managed_sse_enabled           = true
+
+  tags = var.tags
 }
 
-resource "google_kms_crypto_key" "prod_data" {
-  key_ring = google_kms_key_ring.prod.id
-  name     = var.crypto_key_name
-
-  labels = var.labels
-
-  purpose         = "ENCRYPT_DECRYPT"
-  rotation_period = "7776000s"
-
-  lifecycle {
-    prevent_destroy = true
-  }
+output "sqs_queue_arn" {
+  description = "ARN of the SQS queue."
+  value       = aws_sqs_queue.grait.arn
 }
 
-resource "google_kms_crypto_key_iam_binding" "admins" {
-  crypto_key_id = google_kms_crypto_key.prod_data.id
-  members       = var.kms_key_admins
-  role          = "roles/cloudkms.admin"
+output "sqs_queue_id" {
+  description = "ID (URL) of the SQS queue."
+  value       = aws_sqs_queue.grait.id
 }
 
-resource "google_kms_crypto_key_iam_binding" "encrypters_decrypters" {
-  crypto_key_id = google_kms_crypto_key.prod_data.id
-  members       = var.kms_key_encrypters_decrypters
-  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
-}
-
-resource "google_kms_crypto_key_iam_binding" "viewers" {
-  crypto_key_id = google_kms_crypto_key.prod_data.id
-  members       = var.kms_key_viewers
-  role          = "roles/cloudkms.viewer"
-}
-
-output "kms_location" {
-  description = "KMS location used for the Key Ring and CryptoKey."
-  value       = var.location
-}
-
-output "key_ring_id" {
-  description = "ID of the Cloud KMS Key Ring."
-  value       = google_kms_key_ring.prod.id
-}
-
-output "crypto_key_id" {
-  description = "ID of the Cloud KMS CryptoKey."
-  value       = google_kms_crypto_key.prod_data.id
-}
-
-output "crypto_key_name" {
-  description = "Name of the Cloud KMS CryptoKey."
-  value       = google_kms_crypto_key.prod_data.name
+output "sqs_queue_name" {
+  description = "Name of the SQS queue."
+  value       = aws_sqs_queue.grait.name
 }
