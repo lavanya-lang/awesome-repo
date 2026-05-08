@@ -1,5 +1,5 @@
-# Creates a production-grade S3 bucket named 'lolpoi' in us-east-2 for the data-pipeline service with versioning, SSE-KMS encryption (customer-managed KMS key with rotation), public access blocking, BucketOwnerEnforced object ownership, and a lifecycle rule transitioning objects older than 30 days to Glacier; includes required tagging.
-# Generated Terraform code for AWS in us-east-2
+# Basic AWS Terraform scaffold for us-east-1 with enterprise-friendly tagging via provider default_tags; includes no AWS resources (only provider configuration) to keep the plan minimal and ready for a hybrid GitOps workflow.
+# Generated Terraform code for AWS in us-east-1
 
 terraform {
   required_version = ">= 1.14.0"
@@ -13,107 +13,71 @@ terraform {
 }
 
 variable "aws_region" {
-  description = "AWS region to deploy into."
+  description = "AWS region to deploy resources into."
   type        = string
-  default     = "us-east-2"
+  default     = "us-east-1"
+  validation {
+    condition     = length(var.aws_region) > 0
+    error_message = "aws_region must be a non-empty string."
+  }
 }
 
-variable "bucket_name" {
-  description = "Name of the S3 bucket."
+variable "project" {
+  description = "Project name used for resource naming and tagging."
   type        = string
-  default     = "lolpoi"
-
+  default     = "basic"
   validation {
-    condition     = length(var.bucket_name) >= 3 && length(var.bucket_name) <= 63
-    error_message = "S3 bucket names must be between 3 and 63 characters."
+    condition     = can(regex("^[a-zA-Z0-9_-]+$", var.project))
+    error_message = "project may only contain letters, numbers, underscores, and hyphens."
+  }
+}
+
+variable "environment" {
+  description = "Deployment environment used for tagging (e.g., prod, staging)."
+  type        = string
+  default     = "prod"
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9_-]+$", var.environment))
+    error_message = "environment may only contain letters, numbers, underscores, and hyphens."
   }
 }
 
 variable "tags" {
-  description = "Tags to apply to all resources that support tagging."
+  description = "Additional tags to apply to all taggable resources."
   type        = map(string)
-  default = {
-    Service = "data-pipeline"
-  }
+  default     = {}
 }
 
 provider "aws" {
-  region = var.aws_region
   {{block_to_replace_cred}}
-}
 
-resource "aws_s3_bucket" "this" {
-  bucket = var.bucket_name
-  tags   = var.tags
-}
+  region = var.aws_region
 
-resource "aws_s3_bucket_versioning" "this" {
-  bucket = aws_s3_bucket.this.id
-
-  versioning_configuration {
-    status = "Enabled"
+  default_tags {
+    tags = merge(
+      {
+        Environment = var.environment
+        ManagedBy   = "terraform"
+        Project     = var.project
+      },
+      var.tags
+    )
   }
 }
 
-resource "aws_s3_bucket_public_access_block" "this" {
-  block_public_acls       = true
-  block_public_policy     = true
-  bucket                  = aws_s3_bucket.this.id
-  ignore_public_acls      = true
-  restrict_public_buckets = true
+output "aws_region" {
+  description = "AWS region configured for this Terraform deployment."
+  value       = var.aws_region
 }
 
-resource "aws_s3_bucket_ownership_controls" "this" {
-  bucket = aws_s3_bucket.this.id
-
-  rule {
-    object_ownership = "BucketOwnerEnforced"
-  }
-}
-
-resource "aws_kms_key" "this" {
-  description             = "KMS key for SSE-KMS encryption for S3 bucket ${var.bucket_name}"
-  deletion_window_in_days = 30
-  enable_key_rotation     = true
-  tags                    = var.tags
-}
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "this" {
-  bucket = aws_s3_bucket.this.id
-
-  rule {
-    apply_server_side_encryption_by_default {
-      kms_master_key_id = aws_kms_key.this.arn
-      sse_algorithm     = "aws:kms"
-    }
-  }
-}
-
-resource "aws_s3_bucket_lifecycle_configuration" "this" {
-  bucket = aws_s3_bucket.this.id
-
-  rule {
-    id     = "transition-to-glacier-after-30-days"
-    status = "Enabled"
-
-    transition {
-      days          = 30
-      storage_class = "GLACIER"
-    }
-  }
-}
-
-output "bucket_id" {
-  description = "The name (ID) of the S3 bucket."
-  value       = aws_s3_bucket.this.id
-}
-
-output "bucket_arn" {
-  description = "The ARN of the S3 bucket."
-  value       = aws_s3_bucket.this.arn
-}
-
-output "kms_key_arn" {
-  description = "The ARN of the KMS key used for SSE-KMS."
-  value       = aws_kms_key.this.arn
+output "tags" {
+  description = "Effective default tags configured on the AWS provider."
+  value       = merge(
+    {
+      Environment = var.environment
+      ManagedBy   = "terraform"
+      Project     = var.project
+    },
+    var.tags
+  )
 }
