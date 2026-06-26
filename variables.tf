@@ -12,7 +12,7 @@ variable "bucket_location" {
 variable "bucket_name" {
   description = "Globally-unique GCS bucket name."
   type        = string
-  default     = "grod-ptyhbnb"
+  default     = "gcp-demo-storage-2026"
 
   validation {
     condition     = length(var.bucket_name) >= 3 && length(var.bucket_name) <= 63
