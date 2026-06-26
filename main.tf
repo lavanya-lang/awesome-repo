@@ -9,8 +9,14 @@ resource "google_storage_bucket" "this" {
   project       = var.project_id
   storage_class = var.storage_class
 
+  # Fully block public access at the bucket level
   public_access_prevention = "enforced"
 
   # Ensures compliance with storage.uniformBucketLevelAccess
   uniform_bucket_level_access = true
+
+  # Enable object versioning
+  versioning {
+    enabled = true
+  }
 }

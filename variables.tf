@@ -1,7 +1,7 @@
 variable "bucket_location" {
   description = "GCS bucket location (region, dual-region, or multi-region)."
   type        = string
-  default     = "US-CENTRAL1"
+  default     = "us-central1"
 
   validation {
     condition     = length(var.bucket_location) > 0
@@ -23,6 +23,7 @@ variable "bucket_name" {
 variable "project_id" {
   description = "GCP Project ID (provided by credentials in this environment)."
   type        = string
+  default     = "grait-496304"
 }
 
 variable "storage_class" {
