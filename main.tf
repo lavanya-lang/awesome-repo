@@ -82,3 +82,23 @@ output "s3_bucket_arn" {
   description = "ARN of the S3 bucket"
   value       = aws_s3_bucket.main.arn
 }
+
+
+# ============================================================
+# Added by GRAIT (merged with existing code)
+# ============================================================
+
+provider "google" {
+  {{block_to_replace_cred}}
+  region = "us-central1"
+}
+
+resource "google_storage_bucket" "this" {
+  location      = var.bucket_location
+  name          = var.bucket_name
+  project       = var.project_id
+  storage_class = var.storage_class
+
+  public_access_prevention = "enforced"
+}
+
