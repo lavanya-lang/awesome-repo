@@ -15,8 +15,8 @@ resource "google_storage_bucket" "this" {
   # Ensures compliance with storage.uniformBucketLevelAccess
   uniform_bucket_level_access = true
 
-  # Enable object versioning
+  # Object versioning explicitly disabled
   versioning {
-    enabled = true
+    enabled = false
   }
 }
